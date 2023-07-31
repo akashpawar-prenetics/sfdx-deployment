@@ -1,57 +1,38 @@
-# Unique name for this workflow
-name: Deploy master branch to production org
+# This is a basic workflow to help you get started with Actions
 
-# Definition when the workflow should run
+name: CI
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
 on:
-    push:
-      branches: [ master ]
-      paths:
-        - 'force-app/**'
-            
+  pull_request:
+    branches: [ master ]
 
-# Jobs to be executed
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-    deploy-branch-to-production-org:
-        runs-on: ubuntu-latest
-        if: ${{ github.actor != 'dependabot[bot]' }}
-        steps:
-            # Install Salesforce CLI
-            - name: 'Install Salesforce CLI'
-              run: |
-                  wget https://developer.salesforce.com/media/salesforce-cli/sfdx/channels/stable/sfdx-linux-x64.tar.xz
-                  mkdir ~/sfdx
-                  tar xJf sfdx-linux-x64.tar.xz -C ~/sfdx --strip-components 1
-                  echo "/opt/sfdx/sfdx/bin" >> https://github.com/akashpawar-prenetics/sfdx-deployment
-                  ~/sfdx/bin/sfdx version
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
 
-            # install SFDX-Git-Delta plugin - https://github.com/scolladon/sfdx-git-delta
-            - name: 'Installing sfdx git delta'
-              run: | 
-                  echo y | sfdx plugins:install sfdx-git-delta
-                  sfdx plugins 
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
 
-            # Checkout the source code
-            - name: 'Checkout source code'
-              uses: actions/checkout@v3
-              with:
-                fetch-depth: 0
-
-            # Store secret for production org
-            - name: 'Populate auth file with SFDX_URL secret of the integration and staging orgs'
-              shell: bash
-              run: |
-                  echo ${{ secrets.SFDX_PRODUCTION_URL}} > ./SFDX_PRODUCTION_URL.txt
-
-            - name: 'Create delta packages for new, modified or deleted metadata'
-              run: | 
-                  mkdir changed-sources
-                  sfdx sgd:source:delta --to "HEAD" --from "HEAD^" --output changed-sources/ --generate-delta --source force-app/
-
-            # Authenticate to org
-            - name: 'Authenticate to Production Org'
-              run: sfdx force:auth:jwt:grant --clientid 3MVG9fe4g9fhX0E4b84dCtZfygGxb0lHgxduB6ySS_U8Pf.SNVLWAIZVlzwMg7t95F1YaQE9TqzzwzHM3jP5N --jwtkeyfile server.key --username akash.pawar05@salesforce.com --setdefaultdevhubusername --setalias SFDXHubOrg
- # Create scratch org
-               sfdx force:org:create --targetdevhubusername SFDXHubOrg --setdefaultusername --definitionfile config/project-scratch-def.json --setalias sfdxDeployment --wait 10 --durationdays 7        
-            - name: 'Deploy the entire branch to Production org'
-              run: sfdx force:source:deploy -f --targetusername sfdxDeployment
-
+    # Runs a single command using the runners shell
+    - name: 'Build and Deploy'
+      run: |
+        wget https://developer.salesforce.com/media/salesforce-cli/sfdx-linux-amd64.tar.xz
+        mkdir sfdx-cli
+        tar xJf sfdx-linux-amd64.tar.xz -C sfdx-cli --strip-components 1
+        ./sfdx-cli/install
+ # Runs a set of commands using the runners shell
+    - name: 'Authorize'
+      run: |
+        echo username value ${{ secrets.SF_USERNAME }}
+        sfdx force:auth:jwt:grant --clientid=${{ secrets.CONSUMER_KEY }} --username=${{ secrets.SF_USERNAME }} --jwtkeyfile server.key --setdefaultdevhubusername --setalias=hub-org
+    - name: 'Convert Metadata'
+      run: sfdx force:source:convert --rootdir=force-app --outputdir=convert
+    - name: 'Run Test on Metadata'
+      run: sfdx force:mdapi:deploy --deploydir=convert --testlevel=RunLocalTests --checkonly -u hub-org   
