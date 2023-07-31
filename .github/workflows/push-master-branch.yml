@@ -20,10 +20,7 @@ jobs:
     deploy-branch-to-production-org:
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+        steps:
 
     # Runs a single command using the runners shell
     - name: 'Build and Deploy'
@@ -40,4 +37,4 @@ jobs:
     - name: 'Convert Metadata'
       run: sfdx force:source:convert --rootdir=force-app --outputdir=convert
     - name: 'Run Test on Metadata'
-      run: sfdx force:mdapi:deploy --deploydir=convert --testlevel=RunLocalTests --checkonly -u hub-org   
+      run: sfdx force:mdapi:deploy --deploydir=convert --testlevel=RunLocalTests --checkonly -u hub-org 
